@@ -2,7 +2,7 @@
 
 # Overview
 
-This project provides a tool for analyzing PDF documents using the Qwen API. The system consists of a backend server and a simple frontend interface for uploading and processing PDF files.
+This project implements an AI agent that analyzes academic papers (PDF format) and automatically generates corresponding implementation code. 
 
 # Setup and Usage
 ## Backend Setup
