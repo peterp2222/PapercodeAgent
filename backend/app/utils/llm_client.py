@@ -7,12 +7,12 @@ from langchain.agents import create_agent
 from backend.app.PROMPT.planprompt import planprompt
 from backend.app.PROMPT.filecode_generate import filecode_generate
 from backend.app.PROMPT.summaryprompt import summary_prompt
+from backend.app.PROMPT.textprompt import text_prompt
 from langchain_core.prompts import ChatPromptTemplate
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from backend.app.services.base import CodeGenerationState
 import fitz
 from openai import OpenAI
-from PROMPT import text_prompt
 
 def call_project_plan_llm(text_description: str):
     model = ChatOpenAI(

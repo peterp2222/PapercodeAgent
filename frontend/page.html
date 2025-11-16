@@ -169,7 +169,7 @@
           if (data.status === "completed" || data.status === "error") {
 <!--            clearInterval(interval);-->
             if(data.result){
-            resultEl.textContent =`TaskID: ${data.taskId}\n${data.result}`;
+            resultEl.textContent =`TaskID: ${data.taskId}`;
             }else{
              resultEl.textContent = data.error;
             }
