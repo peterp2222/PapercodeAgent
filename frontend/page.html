@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>PDF 自动分析</title>
+  <style>
+    body {
+      font-family: "Microsoft YaHei", sans-serif;
+      background: #f7f8fa;
+      padding: 40px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .container {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: bold;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    input[type="file"] {
+      display: block;
+      margin-bottom: 16px;
+    }
+    .status {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 16px;
+      text-align: center;
+    }
+    .result {
+      border: 1px solid #ddd;
+      background: #fafafa;
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 16px;
+    }
+    .progress-section {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f0f7ff;
+      border-radius: 8px;
+      border-left: 4px solid #1890ff;
+    }
+    .progress-title {
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #1890ff;
+      font-size: 16px;
+    }
+    .file-list {
+      margin-left: 15px;
+    }
+    .file-item {
+      margin-bottom: 8px;
+      padding: 8px;
+      background: white;
+      border-radius: 4px;
+      border-left: 2px solid #1890ff;
+    }
+    .file-path {
+      font-weight: bold;
+      color: #1890ff;
+    }
+    .file-purpose {
+      color: #595959;
+      font-size: 14px;
+    }
+    .highlight {
+      background-color: #e6f7ff;
+      padding: 5px;
+      border-radius: 4px;
+      margin-top: 5px;
+      font-style: italic;
+      color: #0050b3;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>PDF 自动分析</h1>
+    <input id="fileInput" type="file" accept="application/pdf" />
+    <p id="status" class="status">未开始</p>
+
+    <!-- 进度信息区域 -->
+    <div id="progressInfo" class="progress-section" style="display: none;">
+      <div class="progress-title">文件生成进度</div>
+      <div id="filePlanSection">
+        <!-- 文件计划列表将在这里动态生成 -->
+      </div>
+      <div id="currentFileSection" class="progress-title" style="margin-top: 15px;">
+        正在生成的文件
+      </div>
+      <div id="currentFileList" class="file-list">
+        <!-- 当前文件列表将在这里动态生成 -->
+      </div>
+      <div id="completedFileSection" class="progress-title" style="margin-top: 15px;">
+        已完成的文件
+      </div>
+      <div id="completedFileList" class="file-list">
+        <!-- 已完成文件列表将在这里动态生成 -->
+      </div>
+    </div>
+
+    <div id="result" class="result" style="display: none;"></div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById("fileInput");
+    const statusEl = document.getElementById("status");
+    const resultEl = document.getElementById("result");
+    const progressInfo = document.getElementById("progressInfo");
+    const filePlanSection = document.getElementById("filePlanSection");
+    const currentFileList = document.getElementById("currentFileList");
+    const completedFileList = document.getElementById("completedFileList");
+
+    fileInput.addEventListener("change", async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      statusEl.textContent = "正在上传并分析...";
+      resultEl.style.display = "none";
+      progressInfo.style.display = "none";
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        // 上传并开始分析
+        const res = await fetch("http://127.0.0.1:5000/start-project", {
+          method: "POST",
+          body: formData
+        });
+
+        if (!res.ok) throw new Error("上传失败");
+        const data = await res.json();
+        const taskId = data.task_id;
+
+        statusEl.textContent = "分析中...";
+        pollStatus(taskId);
+      } catch (err) {
+        statusEl.textContent = "上传失败：" + err.message;
+      }
+    });
+
+    function pollStatus(taskId) {
+      const interval = setInterval(async () => {
+        try {
+          const res = await fetch(`http://127.0.0.1:5000/task-status/${taskId}`);
+          const data = await res.json();
+
+          statusEl.textContent = "任务状态：" + data.status;
+
+          // 状态变化检测：从planning变为generating
+          if (data.status === "generating") {
+            showProgressInfo(data);
+            progressInfo.style.display = "block";
+          } else {
+            // 其他状态隐藏进度信息
+            progressInfo.style.display = "none";
+          }
+
+          // 任务完成或出错处理
+          if (data.status === "completed" || data.status === "error") {
+<!--            clearInterval(interval);-->
+            if(data.result){
+            resultEl.textContent =`TaskID: ${data.taskId}\n${data.result}`;
+            }else{
+             resultEl.textContent = data.error;
+            }
+            resultEl.style.display = "block";
+          }
+        } catch (err) {
+<!--          clearInterval(interval);-->
+          statusEl.textContent = "查询失败：" + err.message;
+        }
+      }, 5000);
+    }
+
+    function showProgressInfo(data) {
+      // 清空现有内容
+      filePlanSection.innerHTML = '';
+      currentFileList.innerHTML = '';
+      completedFileList.innerHTML = '';
+
+      // 显示计划生成的文件列表
+      if (data.file_plan && data.file_plan.length > 0) {
+        const planTitle = document.createElement('div');
+        planTitle.className = 'progress-title';
+        planTitle.textContent = '计划生成的文件';
+        filePlanSection.appendChild(planTitle);
+
+        data.file_plan.forEach(file => {
+          const fileItem = document.createElement('div');
+          fileItem.className = 'file-item';
+          fileItem.innerHTML = `
+            <div class="file-path">${file.path}</div>
+            <div class="file-purpose">用途: ${file.purpose}</div>
+          `;
+          filePlanSection.appendChild(fileItem);
+        });
+      }
+
+      // 显示正在生成的文件
+      if (data.current_file && data.current_file.length > 0) {
+        data.current_file.forEach(file => {
+          const fileItem = document.createElement('div');
+          fileItem.className = 'file-item';
+          fileItem.innerHTML = `
+            <div class="file-path">${file.path}</div>
+            <div class="file-purpose">用途: ${file.purpose}</div>
+          `;
+          currentFileList.appendChild(fileItem);
+        });
+      }
+
+      // 显示已完成的文件
+      if (data.completed_files && data.completed_files.length > 0) {
+        data.completed_files.forEach(path => {
+          const fileItem = document.createElement('div');
+          fileItem.className = 'file-item';
+          fileItem.innerHTML = `
+            <div class="file-path">${path}</div>
+          `;
+          completedFileList.appendChild(fileItem);
+        });
+      }
+
+      // 如果没有文件信息，显示提示
+      if (data.file_plan && data.file_plan.length === 0 &&
+          data.current_file && data.current_file.length === 0 &&
+          data.completed_files && data.completed_files.length === 0) {
+        const noInfo = document.createElement('div');
+        noInfo.className = 'highlight';
+        noInfo.textContent = '当前没有文件生成进度信息';
+        completedFileList.appendChild(noInfo);
+      }
+    }
+  </script>
+</body>
+</html>
